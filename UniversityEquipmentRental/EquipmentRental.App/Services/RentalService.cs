@@ -8,17 +8,12 @@ namespace EquipmentRental.App.Services;
 public class RentalService
 {
     private readonly List<Rental> _rentals = new();
-    private readonly List<User> _users = new();
-    private readonly List<Equipment> _equipment = new();
-
+    
     // Reguła kary: Stała kwota + stawka dzienna
     private const decimal BasePenalty = 10m;
     private const decimal DailyPenaltyRate = 5m;
 
-    public void AddUser(User user) => _users.Add(user);
-    public void AddEquipment(Equipment equipment) => _equipment.Add(equipment);
-
-    public void RentEquipment(User user, Equipment equipment, int days)
+    public void RentEquipment(User user, Equipment equipment, int days, DateTime? rentalDate = null)
     {
         if (equipment == null) throw new ArgumentNullException(nameof(equipment));
         if (user == null) throw new ArgumentNullException(nameof(user));
@@ -27,51 +22,57 @@ public class RentalService
         // 1. Sprawdź dostępność sprzętu
         if (!equipment.IsAvailable)
         {
-            throw new InvalidOperationException($"Equipment '{equipment.Name}' is not available.");
+            Console.WriteLine($"[ERROR] Equipment '{equipment.Name}' is not available.");
+            return;
         }
 
         // 2. Sprawdź limit użytkownika
         var activeRentalsCount = _rentals.Count(r => r.Renter.Id == user.Id && r.ReturnDate == null);
         if (activeRentalsCount >= user.MaxRentalLimit)
         {
-            throw new InvalidOperationException($"User '{user.FirstName} {user.LastName}' has reached their rental limit of {user.MaxRentalLimit}.");
+            Console.WriteLine($"[ERROR] User '{user.FirstName} {user.LastName}' reached rental limit ({user.MaxRentalLimit}).");
+            return;
         }
 
-        // 3. Utwórz wypożyczenie (poprawiony konstruktor)
-        var rental = new Rental(user, equipment, DateTime.Now, DateTime.Now.AddDays(days));
+        // 3. Utwórz wypożyczenie
+        // Jeśli podano datę wypożyczenia (np. symulacja przeszłości), użyj jej. W przeciwnym razie użyj obecnej.
+        var startDate = rentalDate ?? DateTime.Now;
+        var dueDate = startDate.AddDays(days);
+        
+        var rental = new Rental(user, equipment, startDate, dueDate);
 
         _rentals.Add(rental);
-        equipment.IsAvailable = false; // Zaktualizuj stan sprzętu
+        equipment.IsAvailable = false; 
         
-        Console.WriteLine($"Successfully rented '{equipment.Name}' to {user.FirstName} {user.LastName}. Due: {rental.DueDate:d}");
+        Console.WriteLine($"[SUCCESS] Rented '{equipment.Name}' to {user.FirstName}. Due: {rental.DueDate:d}");
     }
 
-    public decimal ReturnEquipment(User user, Equipment equipment)
+    public void ReturnEquipment(User user, Equipment equipment)
     {
         var rental = _rentals.FirstOrDefault(r => r.Renter.Id == user.Id && r.RentedEquipment.Id == equipment.Id && r.ReturnDate == null);
         
         if (rental == null)
         {
-            throw new InvalidOperationException("No active rental found for this user and equipment.");
+            Console.WriteLine("[ERROR] No active rental found.");
+            return;
         }
 
         rental.ReturnDate = DateTime.Now;
-        equipment.IsAvailable = true; // Sprzęt wraca do puli
+        equipment.IsAvailable = true; 
 
         // Oblicz karę
         if (rental.ReturnDate > rental.DueDate)
         {
             var overdueDays = (rental.ReturnDate.Value - rental.DueDate).Days;
-            // Jeśli spóźnienie jest mniejsze niż 1 dzień (ale po czasie), liczymy jako 1 dzień
             if (overdueDays == 0 && rental.ReturnDate > rental.DueDate) overdueDays = 1;
             
             var penalty = BasePenalty + (overdueDays * DailyPenaltyRate);
-            Console.WriteLine($"Equipment returned late! Penalty: {penalty:C}");
-            return penalty;
+            Console.WriteLine($"[RETURN] Late! Penalty: {penalty:C}");
         }
-
-        Console.WriteLine("Equipment returned on time. No penalty.");
-        return 0m;
+        else
+        {
+            Console.WriteLine("[RETURN] On time. No penalty.");
+        }
     }
 
     public IEnumerable<Rental> GetActiveRentals(User user)
@@ -87,12 +88,12 @@ public class RentalService
     public void GenerateReport()
     {
         Console.WriteLine("\n--- Rental Report ---");
-        Console.WriteLine($"Total active rentals: {_rentals.Count(r => r.ReturnDate == null)}");
-        Console.WriteLine($"Overdue rentals: {GetOverdueRentals().Count()}");
+        Console.WriteLine($"Total active: {_rentals.Count(r => r.ReturnDate == null)}");
+        Console.WriteLine($"Overdue: {GetOverdueRentals().Count()}");
         foreach (var rental in _rentals)
         {
             var status = rental.ReturnDate == null ? (DateTime.Now > rental.DueDate ? "[OVERDUE]" : "[Active]") : "[Returned]";
-            Console.WriteLine($"{status} {rental.Renter.FirstName} rented {rental.RentedEquipment.Name} (Due: {rental.DueDate:d})");
+            Console.WriteLine($"{status} {rental.Renter.FirstName} -> {rental.RentedEquipment.Name} (Due: {rental.DueDate:d})");
         }
         Console.WriteLine("---------------------\n");
     }
