@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace EquipmentRental.App.Models;
+﻿namespace EquipmentRental.App.Models;
 
 public abstract class Equipment
 {
