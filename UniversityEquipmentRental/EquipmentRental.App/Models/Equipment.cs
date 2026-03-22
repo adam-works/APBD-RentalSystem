@@ -1,4 +1,6 @@
-﻿namespace EquipmentRental.App.Models;
+﻿using System;
+
+namespace EquipmentRental.App.Models;
 
 public abstract class Equipment
 {
@@ -9,7 +11,6 @@ public abstract class Equipment
     protected Equipment(string name) => Name = name;
 }
 
-// Przykład typu sprzętu z 2 polami specyficznymi
 public class Laptop : Equipment
 {
     public string Processor { get; set; }
@@ -19,5 +20,29 @@ public class Laptop : Equipment
     {
         Processor = processor;
         RamSizeGb = ramSizeGb;
+    }
+}
+
+public class Projector : Equipment
+{
+    public string MaxResolution { get; set; }
+    public int BrightnessLumens { get; set; }
+
+    public Projector(string name, string maxResolution, int brightnessLumens) : base(name)
+    {
+        MaxResolution = maxResolution;
+        BrightnessLumens = brightnessLumens;
+    }
+}
+
+public class Camera : Equipment
+{
+    public int Megapixels { get; set; }
+    public bool HasOpticalZoom { get; set; }
+
+    public Camera(string name, int megapixels, bool hasOpticalZoom) : base(name)
+    {
+        Megapixels = megapixels;
+        HasOpticalZoom = hasOpticalZoom;
     }
 }
